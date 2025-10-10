@@ -14,19 +14,38 @@ public class HomePage extends JFrame {
         setUndecorated(false);
         setLocationRelativeTo(null);
         getContentPane().setBackground(new Color(0, 87, 183));
-        setResizable(rootPaneCheckingEnabled);
 
-        JLabel welcomeLabel = new JLabel("Welcome to the Electronic Voting App", SwingConstants.CENTER);
-        welcomeLabel.setFont(new Font("Segoe UI", Font.BOLD, 18));
+        // ---------- MAIN CONTAINER ----------
+        JPanel mainPanel = new JPanel();
+        mainPanel.setBackground(new Color(0, 87, 183));
+        mainPanel.setLayout(new GridBagLayout()); // centers everything
+        GridBagConstraints gbc = new GridBagConstraints();
+        gbc.gridx = 0;
+        gbc.gridy = 0;
+        gbc.insets = new Insets(20, 20, 20, 20);
+        gbc.anchor = GridBagConstraints.CENTER;
+        gbc.fill = GridBagConstraints.NONE;
+
+        // ---------- WELCOME LABEL ----------
+        JLabel welcomeLabel = new JLabel("<html><center>Welcome to the<br>Electronic Voting System</center></html>", SwingConstants.CENTER);
+        welcomeLabel.setFont(new Font("Segoe UI", Font.BOLD, 28));
         welcomeLabel.setForeground(Color.WHITE);
+        gbc.gridy = 0;
+        mainPanel.add(welcomeLabel, gbc);
 
+        // ---------- VOTE BUTTON ----------
         JButton voteButton = new JButton("VOTE");
-        voteButton.setFont(new Font("Segoe UI", Font.BOLD, 16));
+        voteButton.setFont(new Font("Segoe UI", Font.BOLD, 20));
         voteButton.setBackground(new Color(255, 209, 0)); // IEC yellow
         voteButton.setForeground(Color.BLACK);
         voteButton.setFocusPainted(false);
-        voteButton.setPreferredSize(new Dimension(150, 45));
+        voteButton.setPreferredSize(new Dimension(200, 55));
+        voteButton.setCursor(Cursor.getPredefinedCursor(Cursor.HAND_CURSOR));
 
+        gbc.gridy = 1;
+        mainPanel.add(voteButton, gbc);
+
+        // ---------- BUTTON ACTION ----------
         voteButton.addActionListener(e -> {
             voteButton.setEnabled(false);
 
@@ -71,13 +90,8 @@ public class HomePage extends JFrame {
             }
         });
 
-        setLayout(new BorderLayout());
-        add(welcomeLabel, BorderLayout.CENTER);
-
-        JPanel bottomPanel = new JPanel();
-        bottomPanel.setBackground(new Color(0, 87, 183));
-        bottomPanel.add(voteButton);
-        add(bottomPanel, BorderLayout.SOUTH);
+        // ---------- ADD MAIN PANEL ----------
+        add(mainPanel, BorderLayout.CENTER);
     }
 
     public static void main(String[] args) {

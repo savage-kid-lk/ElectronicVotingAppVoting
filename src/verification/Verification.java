@@ -31,14 +31,20 @@ public class Verification {
             System.out.println("🔍 Waiting for fingerprint...");
             waitForCaptureThread();
 
-            try { 
-                m_reader.Close(); 
+            try {
+                m_reader.Close();
             } catch (UareUException ignored) {}
         }).start();
     }
 
     private void startCaptureThread(VerificationCallback callback) {
-        m_capture = new CaptureThread(m_reader, false, Fid.Format.ANSI_381_2004, Reader.ImageProcessing.IMG_PROC_DEFAULT);
+        m_capture = new CaptureThread(
+                m_reader,
+                false,
+                Fid.Format.ANSI_381_2004,
+                Reader.ImageProcessing.IMG_PROC_DEFAULT
+        );
+
         m_capture.start(evt -> {
             if (evt.getActionCommand().equals(CaptureThread.ACT_CAPTURE)) {
                 CaptureThread.CaptureEvent ce = (CaptureThread.CaptureEvent) evt;
@@ -70,25 +76,45 @@ public class Verification {
 
     private void processCapturedFingerprint(Fid fid, VerificationCallback callback) throws SQLException {
         Engine engine = UareUGlobal.GetEngine();
+
         try {
+            // Create an FMD (template) from the captured fingerprint
             Fmd capturedFmd = engine.CreateFmd(fid, Fmd.Format.ANSI_378_2004);
-            ResultSet rs = FingerprintDAO.getAllFingerprints();
+            ResultSet rs = FingerprintDAO.getAllVoters();
             boolean matched = false;
 
             if (rs != null) {
                 while (rs.next()) {
-                    byte[] storedData = rs.getBytes("TEMPLATE");
+                    // ✅ Corrected: use FINGERPRINT column from VOTERS table
+                    byte[] storedData = rs.getBytes("FINGERPRINT");
+                    if (storedData == null || storedData.length == 0) continue;
+
                     int width = fid.getViews()[0].getWidth();
                     int height = fid.getViews()[0].getHeight();
                     int resolution = fid.getImageResolution();
                     int finger_position = fid.getViews()[0].getFingerPosition();
                     int cbeff_id = fid.getCbeffId();
 
-                    Fmd storedFmd = engine.CreateFmd(storedData, width, height, resolution, finger_position, cbeff_id, Fmd.Format.ANSI_378_2004);
+                    // Create stored FMD from byte[] data
+                    Fmd storedFmd = engine.CreateFmd(
+                            storedData,
+                            width,
+                            height,
+                            resolution,
+                            finger_position,
+                            cbeff_id,
+                            Fmd.Format.ANSI_378_2004
+                    );
+
+                    // Compare fingerprints
                     int score = engine.Compare(capturedFmd, 0, storedFmd, 0);
 
                     if (score < Engine.PROBABILITY_ONE / 100000) {
                         matched = true;
+                        System.out.println("✅ Match found for voter: "
+                                + rs.getString("NAME") + " "
+                                + rs.getString("SURNAME")
+                                + " (ID: " + rs.getString("ID_NUMBER") + ")");
                         break;
                     }
                 }
