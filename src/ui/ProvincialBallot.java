@@ -3,8 +3,15 @@ package ui;
 import javax.swing.*;
 import java.awt.*;
 import java.awt.event.*;
+import java.awt.image.BufferedImage;
+import java.io.ByteArrayInputStream;
+import java.sql.ResultSet;
+import java.sql.SQLException;
 import java.util.ArrayList;
 import java.util.List;
+import javax.imageio.ImageIO;
+
+import verification.VoterDatabaseLogic;
 
 public class ProvincialBallot extends JFrame {
 
@@ -31,36 +38,10 @@ public class ProvincialBallot extends JFrame {
         candidatesPanel.setBackground(new Color(0, 102, 204));
         candidatesPanel.setBorder(BorderFactory.createEmptyBorder(20,20,20,20));
 
-        Object[][] candidates = {
-            {"ANC", "Cyril Ramaphosa", "images/anc.png"},
-            {"DA", "John Steenhuisen", "images/da.png"},
-            {"EFF", "Julius Malema", "images/eff.png"},
-            {"IFP", "Velenkosini Hlabisa", "images/ifp.png"},
-            {"FF Plus", "Corné Mulder", "images/ffplus.png"},
-            {"Cope", "Mosiuoa Lekota", "images/cope.png"},
-            {"ATM", "Vuyolwethu Zungula", "images/atm.png"},
-            {"Al Jama-ah", "Ganief Hendricks", "images/aljamaah.png"},
-            {"Good", "Patricia de Lille", "images/good.png"},
-            {"UDM", "Bantu Holomisa", "images/udm.png"},
-            {"ACDP", "Kenneth Meshoe", "images/acdp.png"},
-            {"PA", "Gayton McKenzie", "images/pa.png"},
-            {"NFP", "Ivan Rowan Barnes", "images/nfp.png"},
-            {"Independent", "Thabo Mokoena", "images/ind1.png"},
-            {"Independent", "Sipho Dlamini", "images/ind2.png"},
-            {"Independent", "Nomsa Khumalo", "images/ind3.png"},
-            {"Independent", "Pieter van der Merwe", "images/ind4.png"},
-            {"Independent", "Lerato Mthembu", "images/ind5.png"},
-            {"Independent", "Themba Nkosi", "images/ind6.png"},
-            {"Independent", "Zanele Ngcobo", "images/ind7.png"}
-        };
+        loadCandidatesFromDatabase();
 
-        for (Object[] c : candidates) {
-            JPanel panel = createCandidatePanel(c[0].toString(), c[1].toString(), c[2].toString());
-            candidatesPanel.add(panel);
-        }
-
-        add(new JScrollPane(candidatesPanel, JScrollPane.VERTICAL_SCROLLBAR_NEVER, JScrollPane.HORIZONTAL_SCROLLBAR_NEVER),
-            BorderLayout.CENTER);
+        add(new JScrollPane(candidatesPanel, JScrollPane.VERTICAL_SCROLLBAR_AS_NEEDED,
+                JScrollPane.HORIZONTAL_SCROLLBAR_NEVER), BorderLayout.CENTER);
 
         JPanel bottomPanel = new JPanel();
         bottomPanel.setBackground(new Color(0, 102, 204));
@@ -91,13 +72,35 @@ public class ProvincialBallot extends JFrame {
         add(bottomPanel, BorderLayout.SOUTH);
     }
 
-    private JPanel createCandidatePanel(String partyOrInd, String name, String imagePath) {
+    private void loadCandidatesFromDatabase() {
+        try {
+            ResultSet rs = VoterDatabaseLogic.getCandidates("ProvincialBallot");
+            while (rs != null && rs.next()) {
+                String partyName = rs.getString("party_name");
+                String candidateName = rs.getString("candidate_name");
+                byte[] imageBytes = rs.getBytes("image");
+
+                ImageIcon icon = null;
+                if (imageBytes != null) {
+                    BufferedImage img = ImageIO.read(new ByteArrayInputStream(imageBytes));
+                    icon = new ImageIcon(img.getScaledInstance(80, 80, Image.SCALE_SMOOTH));
+                }
+
+                JPanel panel = createCandidatePanel(partyName, candidateName, icon);
+                candidatesPanel.add(panel);
+            }
+        } catch (SQLException | java.io.IOException e) {
+            e.printStackTrace();
+        }
+    }
+
+    private JPanel createCandidatePanel(String partyOrInd, String name, ImageIcon icon) {
         JPanel panel = new JPanel(new BorderLayout(10, 10));
         panel.setBackground(new Color(0, 102, 204));
         panel.setBorder(BorderFactory.createLineBorder(Color.WHITE, 2));
 
-        ImageIcon icon = new ImageIcon(new ImageIcon(imagePath).getImage().getScaledInstance(80, 80, Image.SCALE_SMOOTH));
-        JLabel imgLabel = new JLabel(icon);
+        JLabel imgLabel = (icon != null) ? new JLabel(icon) : new JLabel("No Image");
+        if (icon == null) imgLabel.setForeground(Color.LIGHT_GRAY);
         imgLabel.setPreferredSize(new Dimension(80, 80));
         panel.add(imgLabel, BorderLayout.WEST);
 
@@ -106,12 +109,7 @@ public class ProvincialBallot extends JFrame {
         JLabel nameLabel = new JLabel(name, SwingConstants.LEFT);
         nameLabel.setFont(new Font("Segoe UI", Font.BOLD, 16));
         nameLabel.setForeground(Color.WHITE);
-        JLabel partyLabel;
-        if (partyOrInd.equalsIgnoreCase("Independent")) {
-            partyLabel = new JLabel("Independent", SwingConstants.LEFT);
-        } else {
-            partyLabel = new JLabel(partyOrInd, SwingConstants.LEFT);
-        }
+        JLabel partyLabel = new JLabel(partyOrInd.equalsIgnoreCase("Independent") ? "Independent" : partyOrInd, SwingConstants.LEFT);
         partyLabel.setFont(new Font("Segoe UI", Font.PLAIN, 14));
         partyLabel.setForeground(Color.LIGHT_GRAY);
 

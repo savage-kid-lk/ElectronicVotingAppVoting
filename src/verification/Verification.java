@@ -90,7 +90,7 @@ public class Verification {
         try {
             // Create an FMD (template) from the captured fingerprint
             Fmd capturedFmd = engine.CreateFmd(fid, Fmd.Format.ANSI_378_2004);
-            ResultSet rs = FingerprintDAO.getAllVoters();
+            ResultSet rs = VoterDatabaseLogic.getAllVoters();
             boolean matched = false;
 
             if (rs != null) {
