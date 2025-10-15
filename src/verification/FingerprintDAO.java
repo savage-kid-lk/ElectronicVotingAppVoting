@@ -1,5 +1,5 @@
-package verification;
 
+package verification;
 import java.sql.Connection;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
@@ -63,5 +63,4 @@ public class FingerprintDAO {
             return false;
         }
     }
-
 }

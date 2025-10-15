@@ -4,6 +4,7 @@ import javax.swing.*;
 import java.awt.*;
 import com.digitalpersona.uareu.*;
 import verification.Verification;
+import ui.NationalBallot;
 
 public class HomePage extends JFrame {
 
@@ -65,19 +66,24 @@ public class HomePage extends JFrame {
                     Reader reader = readers.get(0);
                     Verification verification = new Verification(reader);
 
+                    // ✅ Use the callback directly
                     verification.startVerification(verified -> {
                         SwingUtilities.invokeLater(() -> {
-                            voteButton.setEnabled(true);
                             scanDialog.dispose();
+                            voteButton.setEnabled(true);
 
                             if (verified) {
                                 new NationalBallot().setVisible(true);
                                 this.dispose();
                             } else {
-                                JOptionPane.showMessageDialog(this, "Verification Failed", "Access Denied", JOptionPane.ERROR_MESSAGE);
+                                JOptionPane.showMessageDialog(this,
+                                        "Verification Failed",
+                                        "Access Denied",
+                                        JOptionPane.ERROR_MESSAGE);
                             }
                         });
                     });
+
                 } else {
                     scanDialog.dispose();
                     JOptionPane.showMessageDialog(this, "No fingerprint reader found.", "Error", JOptionPane.ERROR_MESSAGE);

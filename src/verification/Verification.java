@@ -18,23 +18,14 @@ public class Verification {
 
     // Start verification asynchronously with callback
     public void startVerification(VerificationCallback callback) {
-        new Thread(() -> {
-            try {
-                m_reader.Open(Reader.Priority.COOPERATIVE);
-                startCaptureThread(callback);
-            } catch (UareUException e) {
-                System.err.println("❌ Error opening reader: " + e.getMessage());
-                callback.onVerificationComplete(false);
-                return;
-            }
-
+        try {
+            m_reader.Open(Reader.Priority.COOPERATIVE);
+            startCaptureThread(callback);
             System.out.println("🔍 Waiting for fingerprint...");
-            waitForCaptureThread();
-
-            try {
-                m_reader.Close();
-            } catch (UareUException ignored) {}
-        }).start();
+        } catch (UareUException e) {
+            System.err.println("❌ Error opening reader: " + e.getMessage());
+            callback.onVerificationComplete(false);
+        }
     }
 
     private void startCaptureThread(VerificationCallback callback) {
@@ -61,8 +52,27 @@ public class Verification {
     }
 
     private void stopCaptureThread() {
-        if (m_capture != null) m_capture.cancel();
+    if (m_capture != null) {
+        try {
+            m_capture.cancel();
+            m_capture.join(); // ✅ wait until the capture thread fully stops
+            System.out.println("🧩 Capture thread stopped.");
+        } catch (InterruptedException e) {
+            System.err.println("⚠️ Interrupted while stopping capture thread: " + e.getMessage());
+        }
     }
+
+    // ✅ Now safely close the reader
+    if (m_reader != null) {
+        try {
+            m_reader.Close();
+            System.out.println("🟢 Reader closed successfully.");
+        } catch (UareUException e) {
+            System.err.println("⚠️ Failed to close reader: " + e.getMessage());
+        }
+    }
+}
+
 
     private void waitForCaptureThread() {
         if (m_capture != null) {
@@ -87,7 +97,9 @@ public class Verification {
                 while (rs.next()) {
                     // ✅ Corrected: use FINGERPRINT column from VOTERS table
                     byte[] storedData = rs.getBytes("FINGERPRINT");
-                    if (storedData == null || storedData.length == 0) continue;
+                    if (storedData == null || storedData.length == 0) {
+                        continue;
+                    }
 
                     int width = fid.getViews()[0].getWidth();
                     int height = fid.getViews()[0].getHeight();
@@ -133,6 +145,7 @@ public class Verification {
 
     // Callback interface
     public interface VerificationCallback {
+
         void onVerificationComplete(boolean verified);
     }
 }
