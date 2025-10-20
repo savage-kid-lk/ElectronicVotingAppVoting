@@ -58,7 +58,7 @@ public class ReviewConfirm extends JFrame {
         reselectBtn.setBackground(Color.LIGHT_GRAY);
         reselectBtn.setFont(new Font("Segoe UI", Font.BOLD, 18));
         reselectBtn.addActionListener(e -> {
-            new ui.NationalBallot().setVisible(true);
+            new NationalBallot().setVisible(true);
             this.dispose();
         });
 
@@ -67,9 +67,6 @@ public class ReviewConfirm extends JFrame {
         add(bottomPanel, BorderLayout.SOUTH);
     }
 
-    /**
-     * Converts "Party - Candidate" string to just party name for database insertion.
-     */
     private void insertVote(String ballotType, String choice) {
         String[] parts = choice.split(" - ", 2);
         if (parts.length >= 1) {
@@ -79,27 +76,47 @@ public class ReviewConfirm extends JFrame {
     }
 
     private JPanel createCandidateBlock(String type, String candidateChoice, String tableName) {
-        JPanel block = new JPanel(new BorderLayout(10, 10));
+        JPanel block = new JPanel(new BorderLayout());
         block.setBackground(new Color(0, 87, 183));
         block.setBorder(BorderFactory.createLineBorder(Color.WHITE, 2));
+        block.setPreferredSize(new Dimension(200, 200));
+        block.setMaximumSize(new Dimension(200, 200));
+        block.setMinimumSize(new Dimension(200, 200));
 
-        JLabel imgLabel = new JLabel("No Image");
-        imgLabel.setPreferredSize(new Dimension(80, 80));
-        imgLabel.setForeground(Color.LIGHT_GRAY);
+        JPanel imagesPanel = new JPanel(new GridLayout(1, 2, 5, 5));
+        imagesPanel.setOpaque(false);
 
-        // Fetch candidate image from database
+        JLabel partyLabel = new JLabel("No Logo", SwingConstants.CENTER);
+        JLabel candidateLabel = new JLabel("No Image", SwingConstants.CENTER);
+        partyLabel.setOpaque(true);
+        partyLabel.setBackground(Color.GRAY);
+        partyLabel.setForeground(Color.WHITE);
+        candidateLabel.setForeground(Color.LIGHT_GRAY);
+
+        partyLabel.setPreferredSize(new Dimension(100, 120));
+        candidateLabel.setPreferredSize(new Dimension(100, 120));
+
+        // Fetch images from database
         try {
             ResultSet rs = VoterDatabaseLogic.getCandidates(tableName);
             while (rs != null && rs.next()) {
                 String partyName = rs.getString("party_name");
                 String candidateName = rs.getString("candidate_name");
-                byte[] imageBytes = rs.getBytes("image");
+                byte[] candidateImageBytes = rs.getBytes("candidate_image");
+                byte[] partyLogoBytes = rs.getBytes("party_logo");
 
                 String fullName = partyName + " - " + candidateName;
-                if (fullName.equals(candidateChoice) && imageBytes != null) {
-                    BufferedImage img = ImageIO.read(new ByteArrayInputStream(imageBytes));
-                    imgLabel.setIcon(new ImageIcon(img.getScaledInstance(80, 80, Image.SCALE_SMOOTH)));
-                    imgLabel.setText(null);
+                if (fullName.equals(candidateChoice)) {
+                    if (candidateImageBytes != null) {
+                        BufferedImage img = ImageIO.read(new ByteArrayInputStream(candidateImageBytes));
+                        candidateLabel.setIcon(new ImageIcon(img.getScaledInstance(120, 120, Image.SCALE_SMOOTH)));
+                        candidateLabel.setText(null);
+                    }
+                    if (!partyName.equalsIgnoreCase("Independent") && partyLogoBytes != null) {
+                        BufferedImage img = ImageIO.read(new ByteArrayInputStream(partyLogoBytes));
+                        partyLabel.setIcon(new ImageIcon(img.getScaledInstance(120, 120, Image.SCALE_SMOOTH)));
+                        partyLabel.setText(null);
+                    }
                     break;
                 }
             }
@@ -107,12 +124,14 @@ public class ReviewConfirm extends JFrame {
             e.printStackTrace();
         }
 
-        JLabel nameLabel = new JLabel("<html><center><b>" + type + "</b><br>" + candidateChoice + "</center></html>", SwingConstants.CENTER);
-        nameLabel.setFont(new Font("Segoe UI", Font.PLAIN, 18));
-        nameLabel.setForeground(Color.WHITE);
+        imagesPanel.add(partyLabel);
+        imagesPanel.add(candidateLabel);
+        block.add(imagesPanel, BorderLayout.CENTER);
 
-        block.add(imgLabel, BorderLayout.WEST);
-        block.add(nameLabel, BorderLayout.CENTER);
+        JLabel textLabel = new JLabel(type + ": " + candidateChoice, SwingConstants.CENTER);
+        textLabel.setForeground(Color.WHITE);
+        textLabel.setFont(new Font("Segoe UI", Font.BOLD, 14));
+        block.add(textLabel, BorderLayout.SOUTH);
 
         return block;
     }

@@ -30,14 +30,17 @@ public class NationalBallot extends JFrame {
         title.setForeground(Color.WHITE);
         add(title, BorderLayout.NORTH);
 
-        candidatesPanel = new JPanel(new GridLayout(0, 4, 20, 20));
+        candidatesPanel = new JPanel();
+        candidatesPanel.setLayout(new GridLayout(0, 5, 15, 15)); // 5 columns, auto rows
         candidatesPanel.setBackground(new Color(0, 102, 204));
         candidatesPanel.setBorder(BorderFactory.createEmptyBorder(20, 20, 20, 20));
 
-        loadCandidatesFromDatabase();
+        JScrollPane scrollPane = new JScrollPane(candidatesPanel,
+                JScrollPane.VERTICAL_SCROLLBAR_AS_NEEDED,
+                JScrollPane.HORIZONTAL_SCROLLBAR_NEVER);
+        add(scrollPane, BorderLayout.CENTER);
 
-        add(new JScrollPane(candidatesPanel, JScrollPane.VERTICAL_SCROLLBAR_AS_NEEDED,
-                JScrollPane.HORIZONTAL_SCROLLBAR_NEVER), BorderLayout.CENTER);
+        loadCandidatesFromDatabase();
 
         JPanel bottomPanel = new JPanel();
         bottomPanel.setBackground(new Color(0, 102, 204));
@@ -65,15 +68,23 @@ public class NationalBallot extends JFrame {
             while (rs != null && rs.next()) {
                 String partyName = rs.getString("party_name");
                 String candidateName = rs.getString("candidate_name");
-                byte[] imageBytes = rs.getBytes("image");
+                byte[] candidateImageBytes = rs.getBytes("candidate_image");
+                byte[] partyLogoBytes = rs.getBytes("party_logo");
 
-                ImageIcon icon = null;
-                if (imageBytes != null) {
-                    BufferedImage img = ImageIO.read(new ByteArrayInputStream(imageBytes));
-                    icon = new ImageIcon(img.getScaledInstance(80, 80, Image.SCALE_SMOOTH));
+                ImageIcon candidateIcon = null;
+                ImageIcon partyIcon = null;
+
+                if (candidateImageBytes != null && candidateImageBytes.length > 0) {
+                    BufferedImage img = ImageIO.read(new ByteArrayInputStream(candidateImageBytes));
+                    candidateIcon = new ImageIcon(img.getScaledInstance(120, 120, Image.SCALE_SMOOTH));
                 }
 
-                JPanel panel = createCandidatePanel(partyName, candidateName, icon);
+                if (!partyName.equalsIgnoreCase("Independent") && partyLogoBytes != null && partyLogoBytes.length > 0) {
+                    BufferedImage img = ImageIO.read(new ByteArrayInputStream(partyLogoBytes));
+                    partyIcon = new ImageIcon(img.getScaledInstance(120, 120, Image.SCALE_SMOOTH));
+                }
+
+                JPanel panel = createCandidatePanel(partyName, candidateName, partyIcon, candidateIcon);
                 candidatesPanel.add(panel);
             }
         } catch (SQLException | java.io.IOException e) {
@@ -81,34 +92,44 @@ public class NationalBallot extends JFrame {
         }
     }
 
-    private JPanel createCandidatePanel(String partyOrInd, String name, ImageIcon icon) {
-        JPanel panel = new JPanel(new BorderLayout(10, 10));
+    private JPanel createCandidatePanel(String partyOrInd, String candidateName, ImageIcon partyIcon, ImageIcon candidateIcon) {
+        JPanel panel = new JPanel(new BorderLayout());
         panel.setBackground(new Color(0, 102, 204));
         panel.setBorder(BorderFactory.createLineBorder(Color.WHITE, 2));
+        panel.setPreferredSize(new Dimension(200, 200));
+        panel.setMaximumSize(new Dimension(200, 200));
+        panel.setMinimumSize(new Dimension(200, 200));
 
-        JLabel imgLabel = (icon != null) ? new JLabel(icon) : new JLabel("No Image");
-        if (icon == null) imgLabel.setForeground(Color.LIGHT_GRAY);
-        imgLabel.setPreferredSize(new Dimension(80, 80));
-        panel.add(imgLabel, BorderLayout.WEST);
+        // Top images side by side
+        JPanel imagesPanel = new JPanel(new GridLayout(1, 2, 5, 5));
+        imagesPanel.setOpaque(false);
 
-        JPanel textPanel = new JPanel(new GridLayout(2, 1));
-        textPanel.setOpaque(false);
-        JLabel topLabel = new JLabel(name, SwingConstants.LEFT);
-        topLabel.setFont(new Font("Segoe UI", Font.BOLD, 16));
-        topLabel.setForeground(Color.WHITE);
-        JLabel bottomLabel = new JLabel(partyOrInd.equalsIgnoreCase("Independent") ? "Independent" : partyOrInd, SwingConstants.LEFT);
-        bottomLabel.setFont(new Font("Segoe UI", Font.PLAIN, 14));
-        bottomLabel.setForeground(Color.LIGHT_GRAY);
+        JLabel partyLabel = (partyIcon != null) ? new JLabel(partyIcon) :
+                new JLabel("Independent", SwingConstants.CENTER);
+        partyLabel.setPreferredSize(new Dimension(100, 120));
+        partyLabel.setOpaque(partyIcon == null);
+        partyLabel.setBackground(Color.GRAY);
+        partyLabel.setForeground(Color.WHITE);
+        partyLabel.setFont(new Font("Segoe UI", Font.BOLD, 12));
 
-        textPanel.add(topLabel);
-        textPanel.add(bottomLabel);
-        panel.add(textPanel, BorderLayout.CENTER);
+        JLabel candidateLabel = (candidateIcon != null) ? new JLabel(candidateIcon) : new JLabel("No Image", SwingConstants.CENTER);
+        candidateLabel.setPreferredSize(new Dimension(100, 120));
+        candidateLabel.setForeground(candidateIcon == null ? Color.LIGHT_GRAY : Color.BLACK);
+
+        imagesPanel.add(partyLabel);
+        imagesPanel.add(candidateLabel);
+        panel.add(imagesPanel, BorderLayout.CENTER);
+
+        JLabel textLabel = new JLabel(partyOrInd + " - " + candidateName, SwingConstants.CENTER);
+        textLabel.setForeground(Color.WHITE);
+        textLabel.setFont(new Font("Segoe UI", Font.BOLD, 14));
+        panel.add(textLabel, BorderLayout.SOUTH);
 
         panel.addMouseListener(new MouseAdapter() {
             @Override
             public void mouseClicked(MouseEvent e) {
                 candidatesSelected.clear();
-                candidatesSelected.add(partyOrInd + " - " + name);
+                candidatesSelected.add(partyOrInd + " - " + candidateName);
                 for (Component comp : candidatesPanel.getComponents()) {
                     comp.setBackground(new Color(0, 102, 204));
                 }
