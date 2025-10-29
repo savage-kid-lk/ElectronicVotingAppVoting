@@ -17,8 +17,16 @@ public class NationalBallot extends JFrame {
 
     private List<String> candidatesSelected = new ArrayList<>();
     private JPanel candidatesPanel;
+    private String voterId;
 
+    // Default constructor for backward compatibility
     public NationalBallot() {
+        this(null);
+    }
+
+    public NationalBallot(String voterId) {
+        this.voterId = voterId;
+        
         setTitle("National Ballot");
         setExtendedState(JFrame.MAXIMIZED_BOTH);
         setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
@@ -51,7 +59,7 @@ public class NationalBallot extends JFrame {
 
         nextBtn.addActionListener(e -> {
             if (!candidatesSelected.isEmpty()) {
-                new RegionalBallot(candidatesSelected.get(0)).setVisible(true);
+                new RegionalBallot(candidatesSelected.get(0), voterId).setVisible(true);
                 this.dispose();
             } else {
                 JOptionPane.showMessageDialog(this, "Select a candidate first", "Error", JOptionPane.ERROR_MESSAGE);

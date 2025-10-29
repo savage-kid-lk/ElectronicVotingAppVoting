@@ -11,6 +11,7 @@ public class Verification {
     private Reader m_reader;
     private CaptureThread m_capture;
     private boolean verified = false;
+    private String verifiedVoterId = null;
 
     public Verification(Reader reader) {
         this.m_reader = reader;
@@ -24,7 +25,7 @@ public class Verification {
             System.out.println("🔍 Waiting for fingerprint...");
         } catch (UareUException e) {
             System.err.println("❌ Error opening reader: " + e.getMessage());
-            callback.onVerificationComplete(false);
+            callback.onVerificationComplete(false, null, "Reader error: " + e.getMessage());
         }
     }
 
@@ -44,42 +45,33 @@ public class Verification {
                         processCapturedFingerprint(ce.capture_result.image, callback);
                     } catch (SQLException ex) {
                         Logger.getLogger(Verification.class.getName()).log(Level.SEVERE, null, ex);
-                        callback.onVerificationComplete(false);
+                        callback.onVerificationComplete(false, null, "Database error: " + ex.getMessage());
                     }
+                } else if (ce.capture_result != null) {
+                    callback.onVerificationComplete(false, null, "Poor fingerprint quality. Please try again.");
                 }
             }
         });
     }
 
     private void stopCaptureThread() {
-    if (m_capture != null) {
-        try {
-            m_capture.cancel();
-            m_capture.join(); // ✅ wait until the capture thread fully stops
-            System.out.println("🧩 Capture thread stopped.");
-        } catch (InterruptedException e) {
-            System.err.println("⚠️ Interrupted while stopping capture thread: " + e.getMessage());
-        }
-    }
-
-    // ✅ Now safely close the reader
-    if (m_reader != null) {
-        try {
-            m_reader.Close();
-            System.out.println("🟢 Reader closed successfully.");
-        } catch (UareUException e) {
-            System.err.println("⚠️ Failed to close reader: " + e.getMessage());
-        }
-    }
-}
-
-
-    private void waitForCaptureThread() {
         if (m_capture != null) {
             try {
-                m_capture.join(); // Wait until capture finishes
+                m_capture.cancel();
+                m_capture.join(); // ✅ wait until the capture thread fully stops
+                System.out.println("🧩 Capture thread stopped.");
             } catch (InterruptedException e) {
-                e.printStackTrace();
+                System.err.println("⚠️ Interrupted while stopping capture thread: " + e.getMessage());
+            }
+        }
+
+        // ✅ Now safely close the reader
+        if (m_reader != null) {
+            try {
+                m_reader.Close();
+                System.out.println("🟢 Reader closed successfully.");
+            } catch (UareUException e) {
+                System.err.println("⚠️ Failed to close reader: " + e.getMessage());
             }
         }
     }
@@ -92,6 +84,8 @@ public class Verification {
             Fmd capturedFmd = engine.CreateFmd(fid, Fmd.Format.ANSI_378_2004);
             ResultSet rs = VoterDatabaseLogic.getAllVoters();
             boolean matched = false;
+            String matchedVoterId = null;
+            String voterName = null;
 
             if (rs != null) {
                 while (rs.next()) {
@@ -123,29 +117,66 @@ public class Verification {
 
                     if (score < Engine.PROBABILITY_ONE / 100000) {
                         matched = true;
-                        System.out.println("✅ Match found for voter: "
-                                + rs.getString("NAME") + " "
-                                + rs.getString("SURNAME")
-                                + " (ID: " + rs.getString("ID_NUMBER") + ")");
+                        matchedVoterId = rs.getString("ID_NUMBER");
+                        voterName = rs.getString("NAME") + " " + rs.getString("SURNAME");
+                        
+                        // Check if voter has already voted using the enhanced method
+                        boolean hasVoted = VoterDatabaseLogic.hasVoterVoted(matchedVoterId);
+                        if (hasVoted) {
+                            // ✅ FIXED: Only record fraud attempt here, NOT in VoterDatabaseLogic
+                            // This prevents double recording of fraud attempts
+                            VoterDatabaseLogic.recordFraudAttempt(matchedVoterId, "DUPLICATE_VOTE", 
+                                capturedFmd.getData().toString(), 
+                                "Fingerprint verification detected already voted voter attempting to access system");
+                            
+                            System.out.println("🚨 Duplicate vote attempt detected for: " + voterName + " (ID: " + matchedVoterId + ")");
+                            stopCaptureThread();
+                            callback.onVerificationComplete(false, matchedVoterId, 
+                                "You have already voted. Duplicate voting is not allowed.");
+                            return;
+                        }
+                        
+                        // Check for suspicious activity patterns
+                        if (VoterDatabaseLogic.hasSuspiciousActivity(matchedVoterId)) {
+                            VoterDatabaseLogic.recordFraudAttempt(matchedVoterId, "SUSPICIOUS_ACTIVITY", null,
+                                "Multiple fraud attempts detected within short timeframe");
+                            stopCaptureThread();
+                            callback.onVerificationComplete(false, matchedVoterId,
+                                "Suspicious activity detected. Please contact election officials.");
+                            return;
+                        }
+                        
+                        System.out.println("✅ Match found for voter: " + voterName + " (ID: " + matchedVoterId + ")");
                         break;
                     }
                 }
             }
 
             verified = matched;
+            verifiedVoterId = matchedVoterId;
             stopCaptureThread();
-            System.out.println(matched ? "✅ Fingerprint verified successfully!" : "❌ Verification failed.");
-            callback.onVerificationComplete(matched);
+            
+            if (matched) {
+                System.out.println("✅ Fingerprint verified successfully for: " + voterName);
+                callback.onVerificationComplete(true, matchedVoterId, "Verification successful!");
+            } else {
+                System.out.println("❌ Verification failed - no matching fingerprint found.");
+                callback.onVerificationComplete(false, null, "Fingerprint not recognized. Please ensure you are registered.");
+            }
 
         } catch (UareUException e) {
             System.err.println("❌ Error processing fingerprint: " + e.getMessage());
-            callback.onVerificationComplete(false);
+            stopCaptureThread();
+            callback.onVerificationComplete(false, null, "Fingerprint processing error: " + e.getMessage());
         }
     }
 
-    // Callback interface
-    public interface VerificationCallback {
+    public String getVerifiedVoterId() {
+        return verifiedVoterId;
+    }
 
-        void onVerificationComplete(boolean verified);
+    // Updated callback interface
+    public interface VerificationCallback {
+        void onVerificationComplete(boolean verified, String voterId, String message);
     }
 }

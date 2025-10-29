@@ -8,7 +8,7 @@ import java.sql.SQLException;
  * Database connection manager for MySQL (Railway).
  * Ensures a single persistent connection across the entire application.
  */
-public class Database {
+public class VoterDatabaseConnectivity {
 
     private static final String URL = "jdbc:mysql://shortline.proxy.rlwy.net:36648/railway";
     private static final String USER = "root";

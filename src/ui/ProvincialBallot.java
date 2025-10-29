@@ -18,8 +18,15 @@ public class ProvincialBallot extends JFrame {
     private List<String> previousSelection = new ArrayList<>();
     private List<String> candidatesSelected = new ArrayList<>();
     private JPanel candidatesPanel;
+    private String voterId;
 
+    // Default constructor for backward compatibility
     public ProvincialBallot(String nationalChoice, String regionalChoice) {
+        this(nationalChoice, regionalChoice, null);
+    }
+
+    public ProvincialBallot(String nationalChoice, String regionalChoice, String voterId) {
+        this.voterId = voterId;
         previousSelection.add(nationalChoice);
         previousSelection.add(regionalChoice);
 
@@ -53,7 +60,7 @@ public class ProvincialBallot extends JFrame {
         backBtn.setBackground(Color.LIGHT_GRAY);
         backBtn.setFont(new Font("Segoe UI", Font.PLAIN, 16));
         backBtn.addActionListener(e -> {
-            new RegionalBallot(previousSelection.get(0)).setVisible(true);
+            new RegionalBallot(previousSelection.get(0), voterId).setVisible(true);
             this.dispose();
         });
 
@@ -63,7 +70,7 @@ public class ProvincialBallot extends JFrame {
         reviewBtn.setForeground(Color.BLACK);
         reviewBtn.addActionListener(e -> {
             if (!candidatesSelected.isEmpty()) {
-                new ReviewConfirm(previousSelection.get(0), previousSelection.get(1), candidatesSelected.get(0)).setVisible(true);
+                new ReviewConfirm(previousSelection.get(0), previousSelection.get(1), candidatesSelected.get(0), voterId).setVisible(true);
                 this.dispose();
             } else {
                 JOptionPane.showMessageDialog(this, "Select a candidate first", "Error", JOptionPane.ERROR_MESSAGE);
