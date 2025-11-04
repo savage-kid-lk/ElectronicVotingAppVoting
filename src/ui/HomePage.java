@@ -3,6 +3,7 @@ package ui;
 import javax.swing.*;
 import java.awt.*;
 import com.digitalpersona.uareu.*;
+import javax.swing.border.LineBorder;
 import verification.Verification;
 import verification.VoterDatabaseConnectivity;
 import verification.VoterDatabaseLogic;
@@ -10,6 +11,7 @@ import verification.VoterDatabaseLogic;
 public class HomePage extends JFrame {
 
     private static int failedVerificationAttempts = 0;
+    private JButton voteButton;
 
     public HomePage() {
         VoterDatabaseConnectivity.initialize();
@@ -25,8 +27,7 @@ public class HomePage extends JFrame {
         gbc.insets = new Insets(20, 20, 20, 20);
         gbc.gridx = 0;
 
-// === LOGO AT TOP ===
-        ImageIcon logo = new ImageIcon(getClass().getResource("/IEC LOGO.png"));
+        ImageIcon logo = new ImageIcon(getClass().getResource("/appLogo.png"));
         Image scaledImage = logo.getImage().getScaledInstance(250, 250, Image.SCALE_SMOOTH);
         ImageIcon scaledLogo = new ImageIcon(scaledImage);
         JLabel logoLabel = new JLabel(scaledLogo);
@@ -34,28 +35,26 @@ public class HomePage extends JFrame {
         gbc.gridy = 0;
         mainPanel.add(logoLabel, gbc);
 
-// === WELCOME TEXT ===
-        gbc.gridy = 1;
         JLabel welcomeLabel = new JLabel(
                 "<html><center>Welcome to the<br>Electronic Voting System</center></html>",
                 SwingConstants.CENTER);
         welcomeLabel.setFont(new Font("Segoe UI", Font.BOLD, 28));
         welcomeLabel.setForeground(Color.WHITE);
+        gbc.gridy = 1;
         mainPanel.add(welcomeLabel, gbc);
 
-// === VOTE BUTTON ===
-        gbc.gridy = 2;
-        JButton voteButton = new JButton("VOTE");
+        voteButton = new JButton("VOTE");
         voteButton.setFont(new Font("Segoe UI", Font.BOLD, 20));
-        voteButton.setBackground(new Color(255, 209, 0));
+        voteButton.setBorder(new LineBorder(new Color(255, 209, 0)));
         voteButton.setPreferredSize(new Dimension(200, 55));
+        voteButton.setEnabled(true);
+        gbc.gridy = 2;
         mainPanel.add(voteButton, gbc);
 
         voteButton.addActionListener(e -> {
             voteButton.setEnabled(false);
             JDialog scanDialog = createScanDialog();
 
-            // Start verification in a separate thread to prevent UI blocking
             new Thread(() -> {
                 SwingUtilities.invokeLater(() -> {
                     scanDialog.setVisible(true);
@@ -74,8 +73,8 @@ public class HomePage extends JFrame {
                                 voteButton.setEnabled(true);
 
                                 if (verified) {
-                                    failedVerificationAttempts = 0; // Reset counter on success
-                                    new NationalBallot(voterId).setVisible(true); // ✅ Pass voterId
+                                    failedVerificationAttempts = 0;
+                                    new NationalBallot(voterId).setVisible(true);
                                     dispose();
                                 } else {
                                     if (message.contains("already voted")) {
@@ -87,7 +86,6 @@ public class HomePage extends JFrame {
                                         failedVerificationAttempts++;
 
                                         if (failedVerificationAttempts >= 3) {
-                                            // Record unregistered voter attempt after 3 failures
                                             VoterDatabaseLogic.recordFraudAttempt("UNKNOWN", "UNREGISTERED_VOTER", null,
                                                     "3 consecutive failed fingerprint verifications. Possible unregistered voter attempt.");
                                             JOptionPane.showMessageDialog(HomePage.this,
@@ -96,7 +94,7 @@ public class HomePage extends JFrame {
                                                     + "Please contact election officials for assistance.",
                                                     "Security Alert",
                                                     JOptionPane.ERROR_MESSAGE);
-                                            failedVerificationAttempts = 0; // Reset after recording
+                                            failedVerificationAttempts = 0;
                                         } else {
                                             JOptionPane.showMessageDialog(HomePage.this,
                                                     message + "\n\nAttempts: " + failedVerificationAttempts + "/3",
@@ -132,6 +130,13 @@ public class HomePage extends JFrame {
         });
 
         add(mainPanel);
+        startDataPreloading();
+    }
+
+    private void startDataPreloading() {
+        new Thread(() -> {
+                DataPreloader.preloadAllData();
+        }).start();
     }
 
     private JDialog createScanDialog() {
@@ -145,7 +150,7 @@ public class HomePage extends JFrame {
         contentPanel.setBorder(BorderFactory.createEmptyBorder(20, 20, 20, 20));
         contentPanel.setBackground(Color.WHITE);
 
-        JLabel iconLabel = new JLabel("🔍", SwingConstants.CENTER);
+        JLabel iconLabel = new JLabel("", SwingConstants.CENTER);
         iconLabel.setFont(new Font("Segoe UI", Font.PLAIN, 36));
 
         JLabel textLabel = new JLabel("<html><center>Please place your finger<br>on the fingerprint scanner</center></html>", SwingConstants.CENTER);

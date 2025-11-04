@@ -3,11 +3,7 @@ package ui;
 import javax.swing.*;
 import java.awt.*;
 import java.awt.image.BufferedImage;
-import java.io.ByteArrayInputStream;
-import java.sql.ResultSet;
-import java.sql.SQLException;
-import verification.VoterDatabaseLogic;
-import javax.imageio.ImageIO;
+import java.util.List;
 
 public class ReviewConfirm extends JFrame {
 
@@ -24,17 +20,14 @@ public class ReviewConfirm extends JFrame {
         setExtendedState(JFrame.MAXIMIZED_BOTH);
         getContentPane().setBackground(new Color(0, 87, 183));
         setLayout(new BorderLayout(20, 20));
-        setDefaultCloseOperation(JFrame.DO_NOTHING_ON_CLOSE); // Prevent accidental closure
+        setDefaultCloseOperation(JFrame.DO_NOTHING_ON_CLOSE);
 
-        // Header with gradient background
         JPanel headerPanel = createHeaderPanel();
         add(headerPanel, BorderLayout.NORTH);
 
-        // Main content panel
         JPanel contentPanel = createContentPanel();
         add(contentPanel, BorderLayout.CENTER);
 
-        // Footer with action buttons
         JPanel footerPanel = createFooterPanel();
         add(footerPanel, BorderLayout.SOUTH);
 
@@ -81,21 +74,17 @@ public class ReviewConfirm extends JFrame {
                 BorderFactory.createEmptyBorder(20, 20, 20, 20)
         ));
 
-        // Header
         JLabel typeLabel = new JLabel(ballotType, SwingConstants.CENTER);
         typeLabel.setFont(new Font("Segoe UI", Font.BOLD, 18));
         typeLabel.setForeground(accentColor);
         card.add(typeLabel, BorderLayout.NORTH);
 
-        // Content
         JPanel contentPanel = new JPanel(new BorderLayout(10, 10));
         contentPanel.setBackground(Color.WHITE);
 
-        // Images
         JPanel imagePanel = createImagePanel(candidateChoice, tableName);
         contentPanel.add(imagePanel, BorderLayout.CENTER);
 
-        // Candidate info
         JTextArea infoArea = new JTextArea(candidateChoice);
         infoArea.setFont(new Font("Segoe UI", Font.PLAIN, 14));
         infoArea.setBackground(Color.WHITE);
@@ -118,28 +107,20 @@ public class ReviewConfirm extends JFrame {
         JLabel partyLogoLabel = createImageLabel("Party Logo");
         JLabel candidateImageLabel = createImageLabel("Candidate Photo");
 
-        // Fetch and set images
-        try {
-            ResultSet rs = VoterDatabaseLogic.getCandidates(tableName);
-            while (rs != null && rs.next()) {
-                String partyName = rs.getString("party_name");
-                String candidateName = rs.getString("candidate_name");
-                byte[] candidateImageBytes = rs.getBytes("candidate_image");
-                byte[] partyLogoBytes = rs.getBytes("party_logo");
-
-                String fullName = partyName + " - " + candidateName;
+        List<DataPreloader.CandidateData> candidates = DataPreloader.getPreloadedData(tableName);
+        if (candidates != null) {
+            for (DataPreloader.CandidateData candidate : candidates) {
+                String fullName = candidate.partyName + " - " + candidate.candidateName;
                 if (fullName.equals(candidateChoice)) {
-                    if (candidateImageBytes != null) {
-                        setImageOnLabel(candidateImageLabel, candidateImageBytes, 150, 150);
+                    if (candidate.candidateImage != null) {
+                        setImageOnLabel(candidateImageLabel, candidate.candidateImage, 150, 150);
                     }
-                    if (partyLogoBytes != null) {
-                        setImageOnLabel(partyLogoLabel, partyLogoBytes, 150, 150);
+                    if (candidate.partyLogo != null) {
+                        setImageOnLabel(partyLogoLabel, candidate.partyLogo, 150, 150);
                     }
                     break;
                 }
             }
-        } catch (SQLException | java.io.IOException e) {
-            System.err.println("Error loading images: " + e.getMessage());
         }
 
         imagePanel.add(partyLogoLabel);
@@ -159,9 +140,8 @@ public class ReviewConfirm extends JFrame {
         return label;
     }
 
-    private void setImageOnLabel(JLabel label, byte[] imageBytes, int width, int height) throws java.io.IOException {
-        BufferedImage img = ImageIO.read(new ByteArrayInputStream(imageBytes));
-        ImageIcon icon = new ImageIcon(img.getScaledInstance(width, height, Image.SCALE_SMOOTH));
+    private void setImageOnLabel(JLabel label, BufferedImage image, int width, int height) {
+        ImageIcon icon = new ImageIcon(image.getScaledInstance(width, height, Image.SCALE_SMOOTH));
         label.setIcon(icon);
         label.setText(null);
     }
@@ -171,10 +151,10 @@ public class ReviewConfirm extends JFrame {
         footer.setBackground(new Color(0, 87, 183));
         footer.setBorder(BorderFactory.createEmptyBorder(20, 0, 40, 0));
 
-        JButton confirmBtn = createStyledButton("CONFIRM VOTE ✅", new Color(46, 204, 113), new Color(39, 174, 96));
+        JButton confirmBtn = createStyledButton("CONFIRM VOTE", new Color(46, 204, 113), new Color(39, 174, 96));
         confirmBtn.addActionListener(e -> confirmVote());
 
-        JButton reselectBtn = createStyledButton("RESELECT VOTES 🔁", new Color(241, 196, 15), new Color(243, 156, 18));
+        JButton reselectBtn = createStyledButton("RESELECT VOTES", new Color(241, 196, 15), new Color(243, 156, 18));
         reselectBtn.addActionListener(e -> {
             int result = JOptionPane.showConfirmDialog(this,
                     "Are you sure you want to reselect your votes?\nAll current selections will be lost.",
@@ -203,7 +183,6 @@ public class ReviewConfirm extends JFrame {
         button.setBorder(BorderFactory.createEmptyBorder(15, 30, 15, 30));
         button.setCursor(new Cursor(Cursor.HAND_CURSOR));
 
-        // Hover effect
         button.addMouseListener(new java.awt.event.MouseAdapter() {
             public void mouseEntered(java.awt.event.MouseEvent evt) {
                 button.setBackground(hoverColor);
@@ -230,28 +209,27 @@ public class ReviewConfirm extends JFrame {
                 JOptionPane.QUESTION_MESSAGE);
 
         if (confirmation == JOptionPane.YES_OPTION) {
-            // Extract party names from choices
             String nationalParty = extractPartyName(nationalChoice);
             String regionalParty = extractPartyName(regionalChoice);
             String provincialParty = extractPartyName(provincialChoice);
 
-            // Insert ALL THREE votes at once in a single transaction
-            boolean allVotesSuccessful = VoterDatabaseLogic.insertAllVotes(
+            boolean allVotesSuccessful = verification.VoterDatabaseLogic.insertAllVotes(
                     nationalParty, regionalParty, provincialParty, voterId);
 
             if (allVotesSuccessful) {
                 JOptionPane.showMessageDialog(this,
-                        "<html><center><b>✅ Vote Submitted Successfully!</b><br><br>"
+                        "<html><center><b>Vote Submitted Successfully!</b><br><br>"
                         + "Thank you for exercising your democratic right.<br>"
                         + "Your votes have been securely recorded for all three ballots.</center></html>",
                         "Vote Confirmed",
                         JOptionPane.INFORMATION_MESSAGE);
 
+                DataPreloader.invalidateCache();
                 new HomePage().setVisible(true);
                 dispose();
             } else {
                 JOptionPane.showMessageDialog(this,
-                        "<html><center><b>❌ Vote Submission Failed</b><br><br>"
+                        "<html><center><b>Vote Submission Failed</b><br><br>"
                         + "There was an issue recording your votes.<br>"
                         + "This may be because you have already voted.<br>"
                         + "Please contact election officials if this is an error.</center></html>",
@@ -264,29 +242,5 @@ public class ReviewConfirm extends JFrame {
     private String extractPartyName(String choice) {
         String[] parts = choice.split(" - ", 2);
         return parts.length >= 1 ? parts[0] : choice;
-    }
-
-    private boolean insertVote(String category, String choice) {
-        String[] parts = choice.split(" - ", 2);
-        if (parts.length >= 1) {
-            String partyName = parts[0];
-            boolean success = VoterDatabaseLogic.insertVote(category, partyName, voterId);
-
-            if (!success) {
-                System.err.println("❌ Failed to insert " + category + " vote for " + voterId + " - Choice: " + choice);
-                // Check if it's because the voter has already voted
-                if (VoterDatabaseLogic.hasVoterVoted(voterId)) {
-                    System.err.println("🚨 Voter " + voterId + " has already voted - blocking duplicate vote");
-                    // Record the fraud attempt
-                    VoterDatabaseLogic.recordFraudAttempt(voterId, "DUPLICATE_VOTE", null,
-                            "Attempted to vote in " + category + " election after already completing voting process");
-                }
-            } else {
-                System.out.println("✅ Successfully inserted " + category + " vote for " + voterId);
-            }
-            return success;
-        }
-        System.err.println("❌ Invalid choice format: " + choice);
-        return false;
     }
 }

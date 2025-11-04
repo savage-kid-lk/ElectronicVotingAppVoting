@@ -4,14 +4,8 @@ import javax.swing.*;
 import java.awt.*;
 import java.awt.event.*;
 import java.awt.image.BufferedImage;
-import java.io.ByteArrayInputStream;
-import java.sql.ResultSet;
-import java.sql.SQLException;
 import java.util.ArrayList;
 import java.util.List;
-import javax.imageio.ImageIO;
-
-import verification.VoterDatabaseLogic;
 
 public class NationalBallot extends JFrame {
 
@@ -19,14 +13,9 @@ public class NationalBallot extends JFrame {
     private JPanel candidatesPanel;
     private String voterId;
 
-    // Default constructor for backward compatibility
-    public NationalBallot() {
-        this(null);
-    }
-
     public NationalBallot(String voterId) {
         this.voterId = voterId;
-        
+
         setTitle("National Ballot");
         setExtendedState(JFrame.MAXIMIZED_BOTH);
         setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
@@ -39,7 +28,7 @@ public class NationalBallot extends JFrame {
         add(title, BorderLayout.NORTH);
 
         candidatesPanel = new JPanel();
-        candidatesPanel.setLayout(new GridLayout(0, 5, 15, 15)); // 5 columns, auto rows
+        candidatesPanel.setLayout(new GridLayout(0, 5, 15, 15));
         candidatesPanel.setBackground(new Color(0, 102, 204));
         candidatesPanel.setBorder(BorderFactory.createEmptyBorder(20, 20, 20, 20));
 
@@ -48,7 +37,7 @@ public class NationalBallot extends JFrame {
                 JScrollPane.HORIZONTAL_SCROLLBAR_NEVER);
         add(scrollPane, BorderLayout.CENTER);
 
-        loadCandidatesFromDatabase();
+        loadCandidatesFromPreloadedData();
 
         JPanel bottomPanel = new JPanel();
         bottomPanel.setBackground(new Color(0, 102, 204));
@@ -70,34 +59,40 @@ public class NationalBallot extends JFrame {
         add(bottomPanel, BorderLayout.SOUTH);
     }
 
-    private void loadCandidatesFromDatabase() {
-        try {
-            ResultSet rs = VoterDatabaseLogic.getCandidates("NationalBallot");
-            while (rs != null && rs.next()) {
-                String partyName = rs.getString("party_name");
-                String candidateName = rs.getString("candidate_name");
-                byte[] candidateImageBytes = rs.getBytes("candidate_image");
-                byte[] partyLogoBytes = rs.getBytes("party_logo");
-
+    private void loadCandidatesFromPreloadedData() {
+        List<DataPreloader.CandidateData> candidates = DataPreloader.getPreloadedData("NationalBallot");
+        
+        if (candidates == null || candidates.isEmpty()) {
+            JOptionPane.showMessageDialog(this,
+                    "Unable to load candidates.\n\nPlease try again or contact election officials.",
+                    "Data Error",
+                    JOptionPane.ERROR_MESSAGE);
+            return;
+        }
+        
+        for (DataPreloader.CandidateData candidate : candidates) {
+            try {
                 ImageIcon candidateIcon = null;
                 ImageIcon partyIcon = null;
 
-                if (candidateImageBytes != null && candidateImageBytes.length > 0) {
-                    BufferedImage img = ImageIO.read(new ByteArrayInputStream(candidateImageBytes));
-                    candidateIcon = new ImageIcon(img.getScaledInstance(120, 120, Image.SCALE_SMOOTH));
+                if (candidate.candidateImage != null) {
+                    candidateIcon = new ImageIcon(candidate.candidateImage.getScaledInstance(120, 120, Image.SCALE_SMOOTH));
                 }
 
-                if (!partyName.equalsIgnoreCase("Independent") && partyLogoBytes != null && partyLogoBytes.length > 0) {
-                    BufferedImage img = ImageIO.read(new ByteArrayInputStream(partyLogoBytes));
-                    partyIcon = new ImageIcon(img.getScaledInstance(120, 120, Image.SCALE_SMOOTH));
+                if (!candidate.partyName.equalsIgnoreCase("Independent") && candidate.partyLogo != null) {
+                    partyIcon = new ImageIcon(candidate.partyLogo.getScaledInstance(120, 120, Image.SCALE_SMOOTH));
                 }
 
-                JPanel panel = createCandidatePanel(partyName, candidateName, partyIcon, candidateIcon);
+                JPanel panel = createCandidatePanel(candidate.partyName, candidate.candidateName, partyIcon, candidateIcon);
                 candidatesPanel.add(panel);
+
+            } catch (Exception candidateEx) {
+                System.err.println("Error processing candidate: " + candidateEx.getMessage());
             }
-        } catch (SQLException | java.io.IOException e) {
-            e.printStackTrace();
         }
+
+        candidatesPanel.revalidate();
+        candidatesPanel.repaint();
     }
 
     private JPanel createCandidatePanel(String partyOrInd, String candidateName, ImageIcon partyIcon, ImageIcon candidateIcon) {
@@ -108,12 +103,11 @@ public class NationalBallot extends JFrame {
         panel.setMaximumSize(new Dimension(200, 200));
         panel.setMinimumSize(new Dimension(200, 200));
 
-        // Top images side by side
         JPanel imagesPanel = new JPanel(new GridLayout(1, 2, 5, 5));
         imagesPanel.setOpaque(false);
 
-        JLabel partyLabel = (partyIcon != null) ? new JLabel(partyIcon) :
-                new JLabel("Independent", SwingConstants.CENTER);
+        JLabel partyLabel = (partyIcon != null) ? new JLabel(partyIcon)
+                : new JLabel("Independent", SwingConstants.CENTER);
         partyLabel.setPreferredSize(new Dimension(100, 120));
         partyLabel.setOpaque(partyIcon == null);
         partyLabel.setBackground(Color.GRAY);
