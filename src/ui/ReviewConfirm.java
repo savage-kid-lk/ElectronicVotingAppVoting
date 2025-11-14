@@ -31,8 +31,6 @@ public class ReviewConfirm extends JFrame {
         JPanel footerPanel = createFooterPanel();
         add(footerPanel, BorderLayout.SOUTH);
 
-        pack();
-        setLocationRelativeTo(null);
     }
 
     private JPanel createHeaderPanel() {

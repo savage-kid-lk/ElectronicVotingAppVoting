@@ -56,56 +56,14 @@ public class HomePage extends JFrame {
             JDialog scanDialog = createScanDialog();
 
             new Thread(() -> {
-                SwingUtilities.invokeLater(() -> {
-                    scanDialog.setVisible(true);
-                });
+
+                SwingUtilities.invokeLater(() -> scanDialog.setVisible(true));
 
                 try {
                     ReaderCollection readers = UareUGlobal.GetReaderCollection();
                     readers.GetReaders();
-                    if (readers.size() > 0) {
-                        Reader reader = readers.get(0);
-                        Verification verification = new Verification(reader);
 
-                        verification.startVerification((verified, voterId, message) -> {
-                            SwingUtilities.invokeLater(() -> {
-                                scanDialog.dispose();
-                                voteButton.setEnabled(true);
-
-                                if (verified) {
-                                    failedVerificationAttempts = 0;
-                                    new NationalBallot(voterId).setVisible(true);
-                                    dispose();
-                                } else {
-                                    if (message.contains("already voted")) {
-                                        JOptionPane.showMessageDialog(HomePage.this,
-                                                message + "\n\nDuplicate voting attempts are recorded and may result in legal action.",
-                                                "Access Denied - Already Voted",
-                                                JOptionPane.WARNING_MESSAGE);
-                                    } else {
-                                        failedVerificationAttempts++;
-
-                                        if (failedVerificationAttempts >= 3) {
-                                            VoterDatabaseLogic.recordFraudAttempt("UNKNOWN", "UNREGISTERED_VOTER", null,
-                                                    "3 consecutive failed fingerprint verifications. Possible unregistered voter attempt.");
-                                            JOptionPane.showMessageDialog(HomePage.this,
-                                                    "Multiple verification failures detected.\n\n"
-                                                    + "This incident has been recorded for security review.\n"
-                                                    + "Please contact election officials for assistance.",
-                                                    "Security Alert",
-                                                    JOptionPane.ERROR_MESSAGE);
-                                            failedVerificationAttempts = 0;
-                                        } else {
-                                            JOptionPane.showMessageDialog(HomePage.this,
-                                                    message + "\n\nAttempts: " + failedVerificationAttempts + "/3",
-                                                    "Verification Failed",
-                                                    JOptionPane.ERROR_MESSAGE);
-                                        }
-                                    }
-                                }
-                            });
-                        });
-                    } else {
+                    if (readers.size() == 0) {
                         SwingUtilities.invokeLater(() -> {
                             scanDialog.dispose();
                             JOptionPane.showMessageDialog(HomePage.this,
@@ -114,18 +72,81 @@ public class HomePage extends JFrame {
                                     JOptionPane.ERROR_MESSAGE);
                             voteButton.setEnabled(true);
                         });
+                        return;
                     }
+
+                    Reader reader = readers.get(0);
+                    Verification verification = new Verification(reader);
+
+                    verification.startVerification((verified, voterId, message) -> {
+
+                        SwingUtilities.invokeLater(() -> scanDialog.dispose());
+
+                        if (verified) {
+                            failedVerificationAttempts = 0;
+
+                            // Show loading dialog while waiting for ALL data to load
+                            JDialog loadingDialog = createLoadingDialog();
+                            SwingUtilities.invokeLater(() -> loadingDialog.setVisible(true));
+
+                            new Thread(() -> {
+                                // FORCE the app to wait until data finishes loading
+                                DataPreloader.preloadAllData();
+
+                                SwingUtilities.invokeLater(() -> {
+                                    loadingDialog.dispose();
+                                    new NationalBallot(voterId).setVisible(true);
+                                    dispose();
+                                });
+
+                            }).start();
+
+                        } else {
+                            SwingUtilities.invokeLater(() -> {
+                                voteButton.setEnabled(true);
+
+                                if (message.contains("already voted")) {
+                                    JOptionPane.showMessageDialog(HomePage.this,
+                                            message + "\n\nDuplicate voting attempts are recorded and may result in legal action.",
+                                            "Access Denied - Already Voted",
+                                            JOptionPane.WARNING_MESSAGE);
+                                } else {
+                                    failedVerificationAttempts++;
+
+                                    if (failedVerificationAttempts >= 3) {
+                                        VoterDatabaseLogic.recordFraudAttempt("UNKNOWN",
+                                                "UNREGISTERED_VOTER", null,
+                                                "3 consecutive failed fingerprint verifications. Possible unregistered voter attempt.");
+                                        JOptionPane.showMessageDialog(HomePage.this,
+                                                "Multiple verification failures detected.\n\n"
+                                                        + "This incident has been recorded for security review.\n"
+                                                        + "Please contact election officials for assistance.",
+                                                "Security Alert",
+                                                JOptionPane.ERROR_MESSAGE);
+                                        failedVerificationAttempts = 0;
+                                    } else {
+                                        JOptionPane.showMessageDialog(HomePage.this,
+                                                message + "\n\nAttempts: " + failedVerificationAttempts + "/3",
+                                                "Verification Failed",
+                                                JOptionPane.ERROR_MESSAGE);
+                                    }
+                                }
+                            });
+                        }
+                    });
+
                 } catch (UareUException ex) {
                     SwingUtilities.invokeLater(() -> {
                         scanDialog.dispose();
                         JOptionPane.showMessageDialog(HomePage.this,
                                 "Error accessing fingerprint reader: " + ex.getMessage()
-                                + "\n\nPlease check device connection and try again.",
+                                        + "\n\nPlease check device connection and try again.",
                                 "Hardware Error",
                                 JOptionPane.ERROR_MESSAGE);
                         voteButton.setEnabled(true);
                     });
                 }
+
             }).start();
         });
 
@@ -134,9 +155,7 @@ public class HomePage extends JFrame {
     }
 
     private void startDataPreloading() {
-        new Thread(() -> {
-                DataPreloader.preloadAllData();
-        }).start();
+        new Thread(DataPreloader::preloadAllData).start();
     }
 
     private JDialog createScanDialog() {
@@ -150,16 +169,14 @@ public class HomePage extends JFrame {
         contentPanel.setBorder(BorderFactory.createEmptyBorder(20, 20, 20, 20));
         contentPanel.setBackground(Color.WHITE);
 
-        JLabel iconLabel = new JLabel("", SwingConstants.CENTER);
-        iconLabel.setFont(new Font("Segoe UI", Font.PLAIN, 36));
-
-        JLabel textLabel = new JLabel("<html><center>Please place your finger<br>on the fingerprint scanner</center></html>", SwingConstants.CENTER);
+        JLabel textLabel = new JLabel(
+                "<html><center>Please place your finger<br>on the fingerprint scanner</center></html>",
+                SwingConstants.CENTER);
         textLabel.setFont(new Font("Segoe UI", Font.PLAIN, 14));
 
         JProgressBar progressBar = new JProgressBar();
         progressBar.setIndeterminate(true);
 
-        contentPanel.add(iconLabel, BorderLayout.NORTH);
         contentPanel.add(textLabel, BorderLayout.CENTER);
         contentPanel.add(progressBar, BorderLayout.SOUTH);
 
@@ -167,9 +184,31 @@ public class HomePage extends JFrame {
         return scanDialog;
     }
 
+    // NEW — Loading dialog that shows while waiting for data
+    private JDialog createLoadingDialog() {
+        JDialog loadingDialog = new JDialog(this, "Loading Data", true);
+        loadingDialog.setLayout(new BorderLayout());
+        loadingDialog.setSize(350, 150);
+        loadingDialog.setLocationRelativeTo(this);
+        loadingDialog.setResizable(false);
+
+        JPanel panel = new JPanel(new BorderLayout());
+        panel.setBorder(BorderFactory.createEmptyBorder(20, 20, 20, 20));
+
+        JLabel label = new JLabel("Loading voting data...\nPlease wait.", SwingConstants.CENTER);
+        label.setFont(new Font("Segoe UI", Font.PLAIN, 16));
+
+        JProgressBar bar = new JProgressBar();
+        bar.setIndeterminate(true);
+
+        panel.add(label, BorderLayout.CENTER);
+        panel.add(bar, BorderLayout.SOUTH);
+
+        loadingDialog.add(panel);
+        return loadingDialog;
+    }
+
     public static void main(String[] args) {
-        SwingUtilities.invokeLater(() -> {
-            new HomePage().setVisible(true);
-        });
+        SwingUtilities.invokeLater(() -> new HomePage().setVisible(true));
     }
 }
