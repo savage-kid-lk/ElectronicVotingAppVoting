@@ -16,6 +16,8 @@ public class ReviewConfirm extends JFrame {
         this.provincialChoice = provincialChoice;
         this.voterId = voterId;
 
+        ImageIcon icon = new ImageIcon(getClass().getResource("/appLogo.png"));
+        setIconImage(icon.getImage());
         setTitle("Review & Confirm Your Vote");
         setExtendedState(JFrame.MAXIMIZED_BOTH);
         getContentPane().setBackground(new Color(0, 87, 183));

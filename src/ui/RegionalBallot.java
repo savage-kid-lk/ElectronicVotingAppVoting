@@ -18,6 +18,8 @@ public class RegionalBallot extends JFrame {
         previousSelection = new ArrayList<>();
         previousSelection.add(nationalChoice);
 
+        ImageIcon icon = new ImageIcon(getClass().getResource("/appLogo.png"));
+        setIconImage(icon.getImage());
         setTitle("Regional Ballot");
         setExtendedState(JFrame.MAXIMIZED_BOTH);
         setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);

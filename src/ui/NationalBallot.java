@@ -16,6 +16,8 @@ public class NationalBallot extends JFrame {
     public NationalBallot(String voterId) {
         this.voterId = voterId;
 
+        ImageIcon icon = new ImageIcon(getClass().getResource("/appLogo.png"));
+        setIconImage(icon.getImage());
         setTitle("National Ballot");
         setExtendedState(JFrame.MAXIMIZED_BOTH);
         setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);

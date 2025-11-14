@@ -16,6 +16,8 @@ public class HomePage extends JFrame {
     public HomePage() {
         VoterDatabaseConnectivity.initialize();
 
+        ImageIcon icon = new ImageIcon(getClass().getResource("/appLogo.png"));
+        setIconImage(icon.getImage());
         setTitle("Electronic Voting System");
         setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
         setExtendedState(JFrame.MAXIMIZED_BOTH);

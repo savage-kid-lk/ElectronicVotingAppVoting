@@ -18,6 +18,8 @@ public class ProvincialBallot extends JFrame {
         previousSelection.add(nationalChoice);
         previousSelection.add(regionalChoice);
 
+        ImageIcon icon = new ImageIcon(getClass().getResource("/appLogo.png"));
+        setIconImage(icon.getImage());
         setTitle("Provincial Ballot");
         setExtendedState(JFrame.MAXIMIZED_BOTH);
         setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
